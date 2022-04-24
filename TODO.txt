@@ -1,0 +1,5 @@
+1. Implement client id connection (check if the id is already connected and display correct messages)
+Implement client as a class in a separate file
+2. Add udp connection functionability
+3. check if the subscribers wants to subscribe to a new topic
+

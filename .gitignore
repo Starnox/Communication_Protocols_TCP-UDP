@@ -3,3 +3,4 @@ server
 subscriber
 *.dSYM
 .DS_Store
+*.o
