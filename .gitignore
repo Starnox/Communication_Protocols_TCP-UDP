@@ -1,4 +1,5 @@
 client
 server
+subscriber
 *.dSYM
 .DS_Store

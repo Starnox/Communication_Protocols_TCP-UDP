@@ -39,13 +39,14 @@ int main(int argc, char *argv[])
 	ret = connect(sockfd, (struct sockaddr*) &serv_addr, sizeof(serv_addr));
 	DIE(ret < 0, "connect");
 
-	fd_set read_fds;	// multimea de citire folosita in select()
-	fd_set tmp_fds;		// multime folosita temporar
+	fd_set read_fds;	// set of descriptors we will use in select
+	fd_set tmp_fds;		// temporary set of descriptors so we don't lose the original ones
 
-	// se goleste multimea de descriptori de citire (read_fds) si multimea temporara (tmp_fds)
+	// clear the set of descriptors
 	FD_ZERO(&read_fds);
 	FD_ZERO(&tmp_fds);
 
+	// add stdin and the server socket to the set
 	FD_SET(0, &read_fds);
 	FD_SET(sockfd, &read_fds);
 	int fdmax = sockfd;
@@ -54,20 +55,37 @@ int main(int argc, char *argv[])
 		tmp_fds = read_fds; 
 		ret = select(fdmax + 1, &tmp_fds, NULL, NULL, NULL);
 		DIE(ret < 0, "select");
+
+		// 0 is the file descriptor that represents console input
+		// check if we have recieved input
 		if(FD_ISSET(0, &tmp_fds)){
-			// se citeste de la tastatura
+			// clear the buffer
 			memset(buffer, 0, BUFLEN);
+			
+			// gets the data from the consoles
 			fgets(buffer, BUFLEN - 1, stdin);
+			if(buffer[strlen(buffer) - 1] == '\n')
+				buffer[strlen(buffer) - 1] = '\0';
+
+			// compare the first 4 characters with the word exit
 			if (strncmp(buffer, "exit", 4) == 0) {
-				break;
+				break; // break out of the loop
 			}
-			// se trimite mesaj la server
+
+			// send the command to the server
 			n = send(sockfd, buffer, strlen(buffer), 0);
 			DIE(n < 0, "send");
 		}
+		// if we recieved information on the socket that is connected to the server
 		if(FD_ISSET(sockfd, &tmp_fds)){
-			
+			// gets the data
 			n = recv(sockfd, buffer, BUFLEN, 0);
+
+			// in case the server closed the connection, disconnect the subscriber
+			if (n == 0) {
+				break;
+			}
+
 			if(buffer[strlen(buffer) - 1] == '\n')
 				buffer[strlen(buffer) - 1] = '\0';
 

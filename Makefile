@@ -1,32 +1,28 @@
-# Protocoale de comunicatii:
-# Laborator 8: Multiplexare
-# Makefile
-
 CFLAGS = -Wall -g
 
-# Portul pe care asculta serverul (de completat)
-PORT = 12365
+# The port on which the server listens
+PORT = 12345
 
-# Adresa IP a serverului (de completat)
+# IP address of the server
 IP_SERVER = 127.0.0.1
 
-all: server client
+all: server subscriber
 
-# Compileaza server.c
+# compile server.c
 server: server.c
 
-# Compileaza client.c
-client: client.c
+# compile subscriber.c
+subscriber: subscriber.c
 
-.PHONY: clean run_server run_client
+.PHONY: clean run_server run_subscriber
 
-# Ruleaza serverul
+# Run sever
 run_server:
 	./server ${PORT}
 
-# Ruleaza clientul
-run_client:
-	./client ${IP_SERVER} ${PORT}
+# Run client
+run_subscriber:
+	./subscriber ${IP_SERVER} ${PORT}
 
 clean:
 	rm -f server client

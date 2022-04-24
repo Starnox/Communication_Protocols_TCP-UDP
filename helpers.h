@@ -21,7 +21,7 @@
 		}									\
 	} while(0)
 
-#define BUFLEN		256	// maximum buffer size
+#define BUFLEN		1024	// maximum buffer size
 #define MAX_CLIENTS	100	// the maximum number of clients that can be connected at any given time
 
 #endif

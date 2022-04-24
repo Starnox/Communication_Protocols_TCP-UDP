@@ -65,6 +65,8 @@ int main(int argc, char *argv[])
 
 	// add the listening socket to our set, from which we will select
 	FD_SET(listenfd, &read_fds);
+	// add stdin to the set
+	FD_SET(0, &read_fds);
 
 	// only one descriptor in the set
 	fdmax = listenfd;
@@ -81,9 +83,22 @@ int main(int argc, char *argv[])
 		for (i = 0; i <= fdmax; i++) {
 			// we iterate through each socket and check if something changed
 			if (FD_ISSET(i, &tmp_fds)) {
-				// if we recieved information on the listening socket
-				// that means a new client wants to connect
-				if (i == listenfd) {
+				if (i == 0) { // console input
+					memset(buffer, 0, BUFLEN);
+					// gets the data from the consoles
+					fgets(buffer, BUFLEN - 1, stdin);
+					if(buffer[strlen(buffer) - 1] == '\n')
+						buffer[strlen(buffer) - 1] = '\0';
+						
+					// compare the first 4 characters with the word exit
+					if (strncmp(buffer, "exit", 4) == 0) {
+						exit(0);
+					}
+
+				}
+				else if (i == listenfd) {
+					// if we recieved information on the listening socket
+					// that means a new client wants to connect
 					subscriber_len = sizeof(cli_addr);
 
 					// accept the connection and create client socket
