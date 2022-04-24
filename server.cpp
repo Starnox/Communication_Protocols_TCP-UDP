@@ -66,6 +66,7 @@ void incoming_tcp_connection(int tcp_listenfd, int &fd_max,
 
 	// get the payload in the buffer
 	int n = recv(subscriberfd, buffer, sizeof(buffer), 0);
+	DIE(n < 0, "recv error");
 	if(buffer[strlen(buffer) - 1] == '\n')
 		buffer[strlen(buffer) - 1] = '\0';
 
@@ -121,16 +122,14 @@ int main(int argc, char *argv[])
 	setvbuf(stdout, NULL, _IONBF, BUFSIZ); 
 
 	// declaration
-	int tcp_listenfd, subscriberfd, portno;
+	int tcp_listenfd, portno;
 	char buffer[BUFLEN];
 
 	std::vector<TCP_Client*> subscribers;
 	std::map<int, TCP_Client*> fd_to_client;
 
-	struct sockaddr_in serv_addr, cli_addr;
+	struct sockaddr_in serv_addr;
 	int n, i, ret;
-
-	socklen_t subscriber_len;
 
 	fd_set read_fds;	// set of descriptors we will use in select
 	fd_set tmp_fds;		// temporary set of descriptors so we don't lose the original ones

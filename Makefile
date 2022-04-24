@@ -1,5 +1,5 @@
 CC = g++ 
-CFLAGS = -Wall -g -std=c++14 
+CFLAGS = -Wall -Wextra -g -std=c++14 
 
 # The port on which the server listens
 PORT = 12345
@@ -30,4 +30,4 @@ run_server:
 	./server ${PORT}
 
 clean:
-	rm -f server client tcp_client
+	rm -f server server.o subscriber subscriber.o tcp_client tcp_client.o
