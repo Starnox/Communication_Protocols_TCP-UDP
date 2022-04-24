@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string>
 
 /*
  * Macro de verificare a erorilor
@@ -23,5 +24,6 @@
 
 #define BUFLEN		1024	// maximum buffer size
 #define MAX_CLIENTS	100	// the maximum number of clients that can be connected at any given time
+#define ID_SIZE 10
 
 #endif

@@ -11,8 +11,21 @@
 
 void usage(char *file)
 {
-	fprintf(stderr, "Usage: %s server_address server_port\n", file);
+	fprintf(stderr, "Usage: %s <ID_Client> <IP_Server> <Port_Server>\n", file);
 	exit(0);
+}
+
+bool check_id(int sockfd, char id[ID_SIZE]) {
+	int n = send(sockfd, id, strlen(id), 0);
+	DIE(n < 0, "send id fail");
+	
+	char buffer[BUFLEN];
+	n = recv(sockfd, buffer, BUFLEN, 0);
+	if(strncmp(buffer, "Fail", 4) == 0)
+		return false;
+
+	return true;
+	
 }
 
 int main(int argc, char *argv[])
@@ -24,20 +37,27 @@ int main(int argc, char *argv[])
 	struct sockaddr_in serv_addr;
 	char buffer[BUFLEN];
 
-	if (argc < 3) {
+	if (argc < 4) {
 		usage(argv[0]);
 	}
-
+	
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	DIE(sockfd < 0, "socket");
 
 	serv_addr.sin_family = AF_INET;
-	serv_addr.sin_port = htons(atoi(argv[2]));
-	ret = inet_aton(argv[1], &serv_addr.sin_addr);
+	serv_addr.sin_port = htons(atoi(argv[3])); // set the port
+	ret = inet_aton(argv[2], &serv_addr.sin_addr); // set the ip
 	DIE(ret == 0, "inet_aton");
 
 	ret = connect(sockfd, (struct sockaddr*) &serv_addr, sizeof(serv_addr));
 	DIE(ret < 0, "connect");
+
+	// send the id to check if it is unique
+	if (check_id(sockfd, argv[1]) == false) {
+		// the id is already connected
+		close(sockfd);
+		return 0;
+	}
 
 	fd_set read_fds;	// set of descriptors we will use in select
 	fd_set tmp_fds;		// temporary set of descriptors so we don't lose the original ones
