@@ -1,8 +1,8 @@
-#include <string>
-#include "helpers.h"
-
 #ifndef _TCP_CLIENT_H
 #define _TCP_CLIENT_H 1
+
+#include <string>
+#include "helpers.h"
 
 class TCP_Client
 {

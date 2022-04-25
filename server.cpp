@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <vector>
 #include <map>
@@ -71,8 +72,10 @@ void incoming_tcp_connection(int tcp_listenfd, int &fd_max,
 		buffer[strlen(buffer) - 1] = '\0';
 
 	// if the id is bigger then 10
-	if(strlen(buffer) > 10)
+	if(strlen(buffer) > 10) {
+		fprintf(stderr, "ID is too long");
 		return;
+	}
 
 	bool exists = false;
 	// go through the vector of subscribers and check if it is already connected
@@ -82,6 +85,7 @@ void incoming_tcp_connection(int tcp_listenfd, int &fd_max,
 			if(client->getConnected() == true) { // the client is already connected
 				printf("Client %s already connected.\n", buffer);
 				send(subscriberfd, "Fail", 4, 0);
+				close(subscriberfd); // close the connection
 				return;
 			} 
 			else {
@@ -111,6 +115,8 @@ void incoming_tcp_connection(int tcp_listenfd, int &fd_max,
 		if(subscriberfd > fd_max)
 			fd_max = subscriberfd;
 	}
+	// disable nagle for the socket
+	disable_nagle(subscriberfd);
 	send(subscriberfd, "Success", 7, 0);
 	printf("New client %s connected from %s:%d.\n", 
 				buffer, inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port));
@@ -165,6 +171,8 @@ int main(int argc, char *argv[])
 
 	ret = listen(tcp_listenfd, MAX_CLIENTS);
 	DIE(ret < 0, "listen");
+
+	disable_nagle(tcp_listenfd); // disable nagle on tcp_listening socket
 
 	// add the listening socket to our set, from which we will select
 	FD_SET(tcp_listenfd, &read_fds);
@@ -224,8 +232,8 @@ int main(int argc, char *argv[])
 						printf ("S-a primit de la clientul de pe socketul %d mesajul: %s\n", i, buffer);
 						char mesaj[BUFLEN];
 						int client;
-						sscanf(buffer, "%d: %s", &client, mesaj);
-						if(client <= 3){
+						int result = sscanf(buffer, "%d: %s", &client, mesaj);					
+						if(result == EOF || client <= 3){
 
 							strcpy(buffer, "Invalid client\n");
 							n = send(i, buffer, strlen(buffer) + 1, 0);

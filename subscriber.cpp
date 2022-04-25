@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #include "helpers.h"
@@ -69,6 +70,8 @@ int main(int argc, char *argv[])
 	// add stdin and the server socket to the set
 	FD_SET(0, &read_fds);
 	FD_SET(sockfd, &read_fds);
+
+	disable_nagle(sockfd);
 	int fdmax = sockfd;
 
 	while (1) {

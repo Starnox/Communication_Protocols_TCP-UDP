@@ -4,6 +4,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <arpa/inet.h>
 
 /*
  * Macro de verificare a erorilor
@@ -25,5 +31,7 @@
 #define BUFLEN		1024	// maximum buffer size
 #define MAX_CLIENTS	100	// the maximum number of clients that can be connected at any given time
 #define ID_SIZE 10
+
+void disable_nagle(int socket);
 
 #endif
