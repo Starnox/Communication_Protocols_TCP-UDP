@@ -133,7 +133,7 @@ int main(int argc, char *argv[])
 
 	fd_set read_fds;	// set of descriptors we will use in select
 	fd_set tmp_fds;		// temporary set of descriptors so we don't lose the original ones
-	int fdmax;			// valoare maxima fd din multimea read_fds
+	int fdmax;
 
 	// in case we don't recieve the port on which to start the server
 	if (argc < 2) {
