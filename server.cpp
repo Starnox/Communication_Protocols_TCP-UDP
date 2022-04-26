@@ -122,19 +122,67 @@ void incoming_tcp_connection(int tcp_listenfd, int &fd_max,
 				buffer, inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port));
 }
 
+void incoming_udp_datagram(int udp_listenfd, struct sockaddr_in cli_udp,
+							std::vector<TCP_Client*> &subscribers) {
+	socklen_t udp_len = sizeof(cli_udp);
+
+	// initialise the message
+	message new_message;
+	memset(&new_message, 0, sizeof(message));
+
+	// the buffer in which we'll recieve the udp datagram
+	char buffer[BUFLEN];
+	memset(buffer, 0, sizeof(buffer));
+
+	int ret = recvfrom(udp_listenfd, &buffer, BUFLEN, 0, (struct sockaddr *) &cli_udp, &udp_len);
+	DIE(ret < 0, "Recv from udp client failed");
+
+	// begin constructing the message from the buffer
+	
+	
+	memcpy(&new_message.ip, &cli_udp.sin_addr, sizeof(struct in_addr)); // get the ip
+	new_message.port = cli_udp.sin_port; // get the port
+	memcpy(&new_message.topic, buffer, TOPIC_LEN); // get the topic
+	new_message.type = buffer[TOPIC_LEN]; // get the type
+	memcpy(&new_message.payload,
+			buffer + TOPIC_LEN + sizeof(new_message.type), PAYLOAD_LEN); // get the payload
+	new_message.len = sizeof(struct in_addr) + sizeof(in_port_t) + TOPIC_LEN + 1;
+	if(new_message.type == 0) 
+		new_message.len += 5;
+	else if(new_message.type == 1) 
+		new_message.len += 2;
+	else if(new_message.type == 2) 
+		new_message.len += 6;
+	else
+		new_message.len += strlen(new_message.payload);
+
+	int aux = new_message.len;
+	new_message.len = htons(new_message.len); // put in network byte order
+
+	memset(buffer, 0, sizeof(buffer));
+	pack(&new_message, buffer, aux+2);
+	for (TCP_Client* client : subscribers) {
+		if(client->getConnected()) {
+			int fd = client->getFd(), len = aux+2;
+			sendall(fd, buffer, len);
+		}
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	// disable output buffering
 	setvbuf(stdout, NULL, _IONBF, BUFSIZ); 
 
 	// declaration
-	int tcp_listenfd, portno;
+	int tcp_listenfd, udp_listenfd, portno;
 	char buffer[BUFLEN];
 
-	std::vector<TCP_Client*> subscribers;
-	std::map<int, TCP_Client*> fd_to_client;
+	std::vector<TCP_Client*> subscribers; // list of subscribers
+	std::map<int, TCP_Client*> fd_to_client; // map between fd and sub
+	std::map<std::string, std::vector<TCP_Client *>> topic_subscribers;
 
-	struct sockaddr_in serv_addr;
+	struct sockaddr_in serv_addr, cli_udp;
 	int n, i, ret;
 
 	fd_set read_fds;	// set of descriptors we will use in select
@@ -150,7 +198,7 @@ int main(int argc, char *argv[])
 	FD_ZERO(&read_fds);
 	FD_ZERO(&tmp_fds);
 
-	// initialise the listening socket
+	// initialise the tcp listening socket
 	tcp_listenfd = socket(AF_INET, SOCK_STREAM, 0);
 	DIE(tcp_listenfd < 0, "socket");
 
@@ -158,7 +206,7 @@ int main(int argc, char *argv[])
 	portno = atoi(argv[1]);
 	DIE(portno == 0, "atoi");
 
-	// initialise information for the server
+	// initialise information for the tcp server
 	memset((char *) &serv_addr, 0, sizeof(serv_addr));
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_port = htons(portno);
@@ -174,12 +222,34 @@ int main(int argc, char *argv[])
 
 	disable_nagle(tcp_listenfd); // disable nagle on tcp_listening socket
 
-	// add the listening socket to our set, from which we will select
+	if(tcp_listenfd > fdmax)
+		fdmax = tcp_listenfd;
+
+	// initialise the udp listening socket
+	udp_listenfd = socket(AF_INET, SOCK_DGRAM, 0);
+	DIE(udp_listenfd < 0, "udp listen socket");
+
+	// reset the udp client
+	memset((char *) &cli_udp, 0, sizeof(cli_udp));
+	// set information
+	cli_udp.sin_family = AF_INET;
+	cli_udp.sin_port = htons(portno);
+	cli_udp.sin_addr.s_addr = INADDR_ANY;
+
+	ret = bind(udp_listenfd, (struct sockaddr *) &cli_udp, sizeof(struct sockaddr));
+	DIE(ret < 0, "udp bind");
+
+	if(udp_listenfd > fdmax)
+		fdmax = udp_listenfd;
+
+	
+	// add the tcp socket to the set
 	FD_SET(tcp_listenfd, &read_fds);
+	// add the udp socket to the set
+	FD_SET(udp_listenfd, &read_fds);
 	// add stdin to the set
 	FD_SET(0, &read_fds);
 
-	fdmax = tcp_listenfd;
 
 	bool closed_connection = false;
 	while (1) {
@@ -202,8 +272,11 @@ int main(int argc, char *argv[])
 				}
 				else if (i == tcp_listenfd) { // we have a new tcp client trying to connect
 					incoming_tcp_connection(tcp_listenfd, fdmax, &read_fds, subscribers, fd_to_client);
-
-				} else { // otherwise it means we recieved information from one of the clients
+				}
+				else if (i == udp_listenfd) {
+					incoming_udp_datagram(udp_listenfd, cli_udp, subscribers);
+				}
+				 else { // otherwise it means we recieved information from one of the clients
 					
 					// reset the buffer
 					memset(buffer, 0, BUFLEN);
@@ -228,8 +301,6 @@ int main(int argc, char *argv[])
 						// remove the fd from the set
 						FD_CLR(i, &read_fds);
 					} else {
-
-						printf ("S-a primit de la clientul de pe socketul %d mesajul: %s\n", i, buffer);
 						char mesaj[BUFLEN];
 						int client;
 						int result = sscanf(buffer, "%d: %s", &client, mesaj);					
@@ -252,7 +323,7 @@ int main(int argc, char *argv[])
 	}
 
 	close(tcp_listenfd);
-
+	close(udp_listenfd);
 	// free the memory
 	for(TCP_Client* client : subscribers) {
 		delete client;

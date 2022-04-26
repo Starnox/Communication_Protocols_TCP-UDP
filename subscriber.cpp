@@ -8,6 +8,7 @@
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <cmath>
 #include "helpers.h"
 
 void usage(char *file)
@@ -27,6 +28,41 @@ bool check_id(int sockfd, char id[ID_SIZE]) {
 
 	return true;
 	
+}
+
+void format_message(message &msg) {
+	
+	printf("%s:%d - %s - ", inet_ntoa(msg.ip), ntohs(msg.port), msg.topic);
+	if(msg.type == 0) { 
+		uint8_t sign = *msg.payload;
+		uint32_t *num = ((uint32_t *) (msg.payload+1));
+		*num = ntohl(*num);
+		if(sign == 0)
+			printf("INT - %d", *num);
+		else
+			printf("INT - -%d", *num);
+	}
+	else if(msg.type == 1) {
+		uint16_t *num = ((uint16_t *) (msg.payload));
+		*num = ntohs(*num);
+ 		printf("SHORT_REAL - %.2f", (*num * 1.0)/100);
+	}
+	else if(msg.type == 2) {
+		uint8_t sign = *msg.payload;
+		uint32_t *num = ((uint32_t *) (msg.payload+1));
+		*num = ntohl(*num);
+		uint8_t mod = *(msg.payload + 5);
+		if(sign == 0)
+			printf("FLOAT - %g", (*num * 1.0) * pow(10, -mod));
+		else
+			printf("FLOAT - -%g", (*num * 1.0) * pow(10, -mod));
+		
+	}
+	else
+		printf("STRING - %s", msg.payload);
+
+	printf("\n");
+
 }
 
 int main(int argc, char *argv[])
@@ -102,18 +138,21 @@ int main(int argc, char *argv[])
 		// if we recieved information on the socket that is connected to the server
 		if(FD_ISSET(sockfd, &tmp_fds)){
 			// gets the data
-			n = recv(sockfd, buffer, BUFLEN, 0);
-
-			// in case the server closed the connection, disconnect the subscriber
-			if (n == 0) {
+			memset(buffer, 0, BUFLEN);
+			int n = recvall(sockfd, buffer);
+			DIE(n < 0, "recvall failed");
+			if (n == 0) { // the server closed the connection
 				break;
 			}
 
 			if(buffer[strlen(buffer) - 1] == '\n')
 				buffer[strlen(buffer) - 1] = '\0';
 
-			printf("Received: %s\n", buffer);
-			DIE(n < 0, "recv_client");
+			message msg = unpack(n, buffer); // unpack the message
+			format_message(msg);
+
+			// in case the server closed the connection, disconnect the subscriber
+			
 		}
 	}
 
