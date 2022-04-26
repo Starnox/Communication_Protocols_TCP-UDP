@@ -30,6 +30,10 @@ bool check_id(int sockfd, char id[ID_SIZE]) {
 	
 }
 
+float new_precision(float n, float i) {
+	return floor(pow(10,i)*n)/pow(10,i);
+}
+
 void format_message(message &msg) {
 	
 	printf("%s:%d - %s - ", inet_ntoa(msg.ip), ntohs(msg.port), msg.topic);
@@ -45,7 +49,7 @@ void format_message(message &msg) {
 	else if(msg.type == 1) {
 		uint16_t *num = ((uint16_t *) (msg.payload));
 		*num = ntohs(*num);
- 		printf("SHORT_REAL - %.2f", (*num * 1.0)/100);
+ 		printf("SHORT_REAL - %.10g", (*num * 1.0)/100);
 	}
 	else if(msg.type == 2) {
 		uint8_t sign = *msg.payload;
@@ -53,13 +57,15 @@ void format_message(message &msg) {
 		*num = ntohl(*num);
 		uint8_t mod = *(msg.payload + 5);
 		if(sign == 0)
-			printf("FLOAT - %g", (*num * 1.0) * pow(10, -mod));
+			printf("FLOAT - %.10g", (*num * 1.0) * pow(10, -mod));
 		else
-			printf("FLOAT - -%g", (*num * 1.0) * pow(10, -mod));
-		
+			printf("FLOAT - -%.10g", (*num * 1.0) * pow(10, -mod));	
 	}
-	else
+	else {
+		int payload_size = ntohs(msg.len) - 57;
+		msg.payload[payload_size] = '\0';
 		printf("STRING - %s", msg.payload);
+	}
 
 	printf("\n");
 
@@ -73,6 +79,8 @@ int main(int argc, char *argv[])
 	int sockfd, n, ret;
 	struct sockaddr_in serv_addr;
 	char buffer[BUFLEN];
+
+	message msg;
 
 	if (argc < 4) {
 		usage(argv[0]);
@@ -130,28 +138,43 @@ int main(int argc, char *argv[])
 			if (strncmp(buffer, "exit", 4) == 0) {
 				break; // break out of the loop
 			}
-
-			// send the command to the server
-			n = send(sockfd, buffer, strlen(buffer), 0);
-			DIE(n < 0, "send");
+			else if(strncmp(buffer, "subscribe", 9) == 0) {
+				// extract the info from the buffer
+				char topic[TOPIC_LEN], command[12];
+				int sf;
+				int result = sscanf(buffer, "%s %s %d", command, topic, &sf);
+				if(result == EOF) 
+					continue;
+				else {
+					// send a subscribe message to the server
+				}
+			}
+			else if(strncmp(buffer, "unsubscribe", 11) == 0) {
+				char topic[TOPIC_LEN], command[12];
+				int result = sscanf(buffer, "%s %s", command, topic);
+				if(result == EOF) 
+					continue;
+				else {
+					// send a unsubscribe message to the server
+				}
+			}
+			else {
+				continue;;
+			}
 		}
 		// if we recieved information on the socket that is connected to the server
 		if(FD_ISSET(sockfd, &tmp_fds)){
 			// gets the data
 			memset(buffer, 0, BUFLEN);
-			int n = recvall(sockfd, buffer);
+			n = recvall(sockfd, buffer);
 			DIE(n < 0, "recvall failed");
 			if (n == 0) { // the server closed the connection
 				break;
 			}
 
-			if(buffer[strlen(buffer) - 1] == '\n')
-				buffer[strlen(buffer) - 1] = '\0';
-
-			message msg = unpack(n, buffer); // unpack the message
+			msg = unpack(n, buffer); // unpack the message
+			//printf("%d\n", ntohs(msg.len));
 			format_message(msg);
-
-			// in case the server closed the connection, disconnect the subscriber
 			
 		}
 	}

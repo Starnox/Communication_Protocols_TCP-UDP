@@ -15,6 +15,7 @@ void pack(message *msg, char *buf, uint16_t size) {
     memcpy(buf + 8 + TOPIC_LEN, &(msg->type), 1); // put the type
     memcpy(buf + 8 + TOPIC_LEN + 1, &(msg->payload), strlen(msg->payload)); // put the payload
     */
+    memset(buf,0,BUFLEN);
     memcpy(buf, msg, size); // the size of var length isn't included in var len
 }
 

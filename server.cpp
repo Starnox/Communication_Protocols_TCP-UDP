@@ -100,9 +100,10 @@ void incoming_tcp_connection(int tcp_listenfd, int &fd_max,
 		}
 	}
 	// the client is connecting for the first time
+	
 	if(!exists) {
 		// create a new client and add it to the vector
-		TCP_Client *new_client = new TCP_Client(buffer, subscriberfd, 0, true);
+		TCP_Client *new_client = new TCP_Client(buffer, subscriberfd, true);
 		subscribers.push_back(new_client);
 
 		// map the socket to the client
@@ -145,7 +146,7 @@ void incoming_udp_datagram(int udp_listenfd, struct sockaddr_in cli_udp,
 	memcpy(&new_message.topic, buffer, TOPIC_LEN); // get the topic
 	new_message.type = buffer[TOPIC_LEN]; // get the type
 	memcpy(&new_message.payload,
-			buffer + TOPIC_LEN + sizeof(new_message.type), PAYLOAD_LEN); // get the payload
+			buffer + TOPIC_LEN + sizeof(new_message.type),PAYLOAD_LEN); // get the payload
 	new_message.len = sizeof(struct in_addr) + sizeof(in_port_t) + TOPIC_LEN + 1;
 	if(new_message.type == 0) 
 		new_message.len += 5;
@@ -180,7 +181,7 @@ int main(int argc, char *argv[])
 
 	std::vector<TCP_Client*> subscribers; // list of subscribers
 	std::map<int, TCP_Client*> fd_to_client; // map between fd and sub
-	std::map<std::string, std::vector<TCP_Client *>> topic_subscribers;
+	//std::map<std::string, std::vector<TCP_Client *>> topic_subscribers;
 
 	struct sockaddr_in serv_addr, cli_udp;
 	int n, i, ret;
@@ -276,8 +277,7 @@ int main(int argc, char *argv[])
 				else if (i == udp_listenfd) {
 					incoming_udp_datagram(udp_listenfd, cli_udp, subscribers);
 				}
-				 else { // otherwise it means we recieved information from one of the clients
-					
+				else { // otherwise it means we recieved information from one of the clients
 					// reset the buffer
 					memset(buffer, 0, BUFLEN);
 
