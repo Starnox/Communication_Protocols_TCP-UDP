@@ -307,16 +307,20 @@ int main(int argc, char *argv[])
 						DIE(n < 2, "command incomplete");
 						char command_type;
 						char topic[TOPIC_LEN];
-						int sf;
+						int sf, res;
 
 						if(command[2] == 's') {
-							sscanf(command+2, "%c %s %d", &command_type, topic, &sf);
+							res = sscanf(command+2, "%c %s %d", &command_type, topic, &sf);
+							if(res != 3)
+								continue;
 
 							// add the client to that topic
 							topic_subscribers[topic].insert(fd_to_client[i]);
 
 						} else if(command[2] == 'u') {
-							sscanf(command+2, "%c %s", &command_type, topic);
+							res = sscanf(command+2, "%c %s", &command_type, topic);
+							if(res != 2)
+								continue;
 							// find the client and remove it
 							for(auto client = topic_subscribers[topic].begin(); client != topic_subscribers[topic].end();) {
 								if((*client)->getFd() == i)

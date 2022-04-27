@@ -156,7 +156,10 @@ int main(int argc, char *argv[])
 				int sf;
 				// extract the info from the buffer
 				int result = sscanf(buffer, "%s %s %d", command, topic, &sf);
-				if(result == EOF) 
+				// input sanitization
+				if(result != 3) 
+					continue;
+				if(sf != 0 && sf != 1)
 					continue;
 				else
 					sprintf(command, "s %s %d", topic, sf); // create the command
@@ -164,7 +167,7 @@ int main(int argc, char *argv[])
 			else if(strncmp(buffer, "unsubscribe", 11) == 0) {
 				type = 2;
 				int result = sscanf(buffer, "%s %s", command, topic);
-				if(result == EOF) 
+				if(result != 2) 
 					continue;
 				else 
 					sprintf(command, "u %s", topic); // create the command
