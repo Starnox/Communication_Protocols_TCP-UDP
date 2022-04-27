@@ -37,20 +37,23 @@ float new_precision(float n, float i) {
 
 void format_message(message &msg) {
 	
-	printf("%s:%d - %s - ", inet_ntoa(msg.ip), ntohs(msg.port), msg.topic);
+	
+	char value[PAYLOAD_LEN+20];
+	memset(value, 0 , PAYLOAD_LEN+20);
+
 	if(msg.type == 0) { 
 		uint8_t sign = *msg.payload;
 		uint32_t *num = ((uint32_t *) (msg.payload+1));
 		*num = ntohl(*num);
 		if(sign == 0)
-			printf("INT - %d", *num);
+			sprintf(value ,"INT - %d", *num);
 		else
-			printf("INT - -%d", *num);
+			sprintf(value, "INT - -%d", *num);
 	}
 	else if(msg.type == 1) {
 		uint16_t *num = ((uint16_t *) (msg.payload));
 		*num = ntohs(*num);
- 		printf("SHORT_REAL - %.10g", (*num * 1.0)/100);
+ 		sprintf(value,"SHORT_REAL - %.10g", (*num * 1.0)/100);
 	}
 	else if(msg.type == 2) {
 		uint8_t sign = *msg.payload;
@@ -58,17 +61,17 @@ void format_message(message &msg) {
 		*num = ntohl(*num);
 		uint8_t mod = *(msg.payload + 5);
 		if(sign == 0)
-			printf("FLOAT - %.10g", (*num * 1.0) * pow(10, -mod));
+			sprintf(value,"FLOAT - %.10g", (*num * 1.0) * pow(10, -mod));
 		else
-			printf("FLOAT - -%.10g", (*num * 1.0) * pow(10, -mod));	
+			sprintf(value,"FLOAT - -%.10g", (*num * 1.0) * pow(10, -mod));	
 	}
 	else {
 		int payload_size = ntohs(msg.len) - 57;
 		msg.payload[payload_size] = '\0';
-		printf("STRING - %s", msg.payload);
+		sprintf(value,"STRING - %s", msg.payload);
 	}
 
-	printf("\n");
+	printf("%s:%d - %s - %s\n", inet_ntoa(msg.ip), ntohs(msg.port), msg.topic, value);
 
 }
 
@@ -197,7 +200,6 @@ int main(int argc, char *argv[])
 			}
 
 			msg = unpack(n, buffer); // unpack the message
-			//printf("%d\n", ntohs(msg.len));
 			format_message(msg);
 			
 		}

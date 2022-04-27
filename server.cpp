@@ -337,6 +337,9 @@ int main(int argc, char *argv[])
 	close(udp_listenfd);
 	// free the memory
 	for(TCP_Client* client : subscribers) {
+		// close connections
+		if(client->getConnected())
+			close(client->getFd());
 		delete client;
 	}
 
