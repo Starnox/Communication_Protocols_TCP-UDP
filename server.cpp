@@ -53,7 +53,8 @@ bool check_server_commands() {
  */
 void incoming_tcp_connection(int tcp_listenfd, int &fd_max,
 								 fd_set *read_fds, std::vector<TCP_Client*> &subscribers,
-								 std::map<int, TCP_Client*> &fd_to_client) {
+								 std::map<int, TCP_Client*> &fd_to_client,
+								 std::map<TCP_Client *, std::vector<char *>> &to_send) {
 	socklen_t subscriber_len;
 	struct sockaddr_in cli_addr;
 
@@ -78,7 +79,7 @@ void incoming_tcp_connection(int tcp_listenfd, int &fd_max,
 		return;
 	}
 
-	bool exists = false;
+	bool exists = false, has_messages = false;
 	// go through the vector of subscribers and check if it is already connected
 	for(TCP_Client* client : subscribers) {
 		if(client->getId() == buffer) { // verify id
@@ -97,6 +98,8 @@ void incoming_tcp_connection(int tcp_listenfd, int &fd_max,
 				fd_to_client[subscriberfd] = client;
 				// add it to the set again
 				FD_SET(subscriberfd, read_fds);
+				if(to_send[client].size() > 0)
+					has_messages = true;
 			}
 		}
 	}
@@ -122,10 +125,27 @@ void incoming_tcp_connection(int tcp_listenfd, int &fd_max,
 	send(subscriberfd, "Success", 7, 0);
 	printf("New client %s connected from %s:%d.\n", 
 				buffer, inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port));
+
+	if(has_messages) {
+		//send the client all the messages that he missed
+		TCP_Client *client = fd_to_client[subscriberfd];
+		for(char *msg : to_send[client]) {
+			// the message is already packed, we just need to send it
+			uint16_t *length = (uint16_t *) (msg);
+			int n = sendall(client->getFd(), msg, ntohs(*length) +2);
+			DIE(n < 0, "sendall failed");
+			free(msg); // free memory
+		}
+		// clear the messages that have been sent
+		to_send[client].clear();
+	}
 }
 
 void incoming_udp_datagram(int udp_listenfd, struct sockaddr_in cli_udp,
-							std::map<std::string, std::set<TCP_Client *>> &topic_subscribers) {
+							std::map<std::string, std::set<TCP_Client *>> &topic_subscribers,
+							std::map<std::pair<TCP_Client*,std::string>,bool> &has_sf,
+							std::map<TCP_Client *, std::vector<char *>> &toSend) {
+
 	socklen_t udp_len = sizeof(cli_udp);
 
 	// initialise the message
@@ -169,6 +189,11 @@ void incoming_udp_datagram(int udp_listenfd, struct sockaddr_in cli_udp,
 			int fd = client->getFd(), len = aux+2;
 			int n = sendall(fd, buffer, len);
 			DIE(n < 0, "sendall failed");
+		} else if(has_sf[{client, new_message.topic}]){
+			// TODO store the message for the client
+			char *msg_copy = (char *) malloc(BUFLEN);
+			memcpy(msg_copy, buffer, BUFLEN);
+			toSend[client].push_back(msg_copy);
 		}
 	}
 }
@@ -184,6 +209,8 @@ int main(int argc, char *argv[])
 	std::vector<TCP_Client*> subscribers; // list of subscribers
 	std::map<int, TCP_Client*> fd_to_client; // map between fd and sub
 	std::map<std::string, std::set<TCP_Client *>> topic_subscribers;
+	std::map<std::pair<TCP_Client*,std::string>,bool> has_sf; // connection between topic,client and sf
+	std::map<TCP_Client *, std::vector<char *>> to_send; // messages to send
 
 	struct sockaddr_in serv_addr, cli_udp;
 	int n, i, ret;
@@ -274,10 +301,11 @@ int main(int argc, char *argv[])
 					}
 				}
 				else if (i == tcp_listenfd) { // we have a new tcp client trying to connect
-					incoming_tcp_connection(tcp_listenfd, fdmax, &read_fds, subscribers, fd_to_client);
+					incoming_tcp_connection(tcp_listenfd, fdmax, &read_fds, subscribers, fd_to_client,
+											to_send);
 				}
 				else if (i == udp_listenfd) {
-					incoming_udp_datagram(udp_listenfd, cli_udp, topic_subscribers);
+					incoming_udp_datagram(udp_listenfd, cli_udp, topic_subscribers, has_sf, to_send);
 				}
 				else { // otherwise it means we recieved information from one of the clients
 					// reset the buffer
@@ -316,6 +344,12 @@ int main(int argc, char *argv[])
 
 							// add the client to that topic
 							topic_subscribers[topic].insert(fd_to_client[i]);
+
+							// make the connection beetween the topic,client and storeForward
+							if(sf == 1) 
+								has_sf[{fd_to_client[i], topic}] = true;
+							else
+								has_sf[{fd_to_client[i], topic}] = false;
 
 						} else if(command[2] == 'u') {
 							res = sscanf(command+2, "%c %s", &command_type, topic);
