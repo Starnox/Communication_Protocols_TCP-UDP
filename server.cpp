@@ -73,11 +73,6 @@ void incoming_tcp_connection(int tcp_listenfd, int &fd_max,
 	int n = recv(subscriberfd, buffer, ID_SIZE, 0);
 	DIE(n < 0, "recv error");
 
-	// if the id is bigger then 10
-	if(strlen(buffer) > 10) {
-		fprintf(stderr, "ID is too long");
-		return;
-	}
 
 	bool exists = false, has_messages = false;
 	// go through the vector of subscribers and check if it is already connected
@@ -149,7 +144,7 @@ void incoming_udp_datagram(int udp_listenfd, struct sockaddr_in cli_udp,
 	socklen_t udp_len = sizeof(cli_udp);
 
 	// initialise the message
-	message new_message;
+	message new_message{};
 	memset(&new_message, 0, sizeof(message));
 
 	// the buffer in which we'll recieve the udp datagram
@@ -168,6 +163,7 @@ void incoming_udp_datagram(int udp_listenfd, struct sockaddr_in cli_udp,
 	new_message.type = buffer[TOPIC_LEN]; // get the type
 	memcpy(&new_message.payload,
 			buffer + TOPIC_LEN + sizeof(new_message.type),PAYLOAD_LEN); // get the payload
+	new_message.payload[PAYLOAD_LEN-1] = '\0';
 	new_message.len = sizeof(struct in_addr) + sizeof(in_port_t) + TOPIC_LEN + 1;
 	if(new_message.type == 0) 
 		new_message.len += 5;
@@ -217,7 +213,7 @@ int main(int argc, char *argv[])
 
 	fd_set read_fds;	// set of descriptors we will use in select
 	fd_set tmp_fds;		// temporary set of descriptors so we don't lose the original ones
-	int fdmax;
+	int fdmax = 0;
 
 	// in case we don't recieve the port on which to start the server
 	if (argc < 2) {
@@ -310,7 +306,7 @@ int main(int argc, char *argv[])
 				else { // otherwise it means we recieved information from one of the clients
 					// reset the buffer
 					client_command cmd;
-					char command[COMMAND_LEN];
+					char command[COMMAND_LEN] = "";
 
 					memset(&cmd, 0, sizeof(client_command));
 					memset(command, 0, COMMAND_LEN);
