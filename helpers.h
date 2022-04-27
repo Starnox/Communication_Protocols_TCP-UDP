@@ -31,7 +31,7 @@
 
 #define BUFLEN		1600	// maximum buffer size
 #define PAYLOAD_LEN 1500
-#define COMMAND_LEN 60
+#define COMMAND_LEN 80
 #define TOPIC_LEN 50
 #define MAX_CLIENTS	200	// the maximum number of clients that can be connected at any given time
 #define ID_SIZE 10

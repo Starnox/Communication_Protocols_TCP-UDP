@@ -143,7 +143,7 @@ int main(int argc, char *argv[])
 			char topic[TOPIC_LEN], command[COMMAND_LEN];
 
 			memset(&cmd, 0, sizeof(client_command));
-			memset(command,0,sizeof(command));
+			memset(command,0, COMMAND_LEN);
 			int type = 0;
 			// compare the first 4 characters with the word exit
 			if (strncmp(buffer, "exit", 4) == 0) {

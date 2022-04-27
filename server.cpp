@@ -308,6 +308,7 @@ int main(int argc, char *argv[])
 						char command_type;
 						char topic[TOPIC_LEN];
 						int sf;
+
 						if(command[2] == 's') {
 							sscanf(command+2, "%c %s %d", &command_type, topic, &sf);
 
