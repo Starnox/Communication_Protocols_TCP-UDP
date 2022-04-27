@@ -18,11 +18,12 @@ void usage(char *file)
 }
 
 bool check_id(int sockfd, char id[ID_SIZE]) {
-	int n = send(sockfd, id, strlen(id), 0);
+	id[ID_SIZE-1] = '\0';
+	int n = send(sockfd, id, ID_SIZE, 0);
 	DIE(n < 0, "send id fail");
 	
-	char buffer[BUFLEN];
-	n = recv(sockfd, buffer, BUFLEN, 0);
+	char buffer[ID_SIZE];
+	n = recv(sockfd, buffer, ID_SIZE, 0);
 	if(strncmp(buffer, "Fail", 4) == 0)
 		return false;
 
@@ -127,40 +128,63 @@ int main(int argc, char *argv[])
 		// check if we have recieved input
 		if(FD_ISSET(0, &tmp_fds)){
 			// clear the buffer
-			memset(buffer, 0, BUFLEN);
+			memset(buffer, 0, COMMAND_LEN);
 			
 			// gets the data from the consoles
-			fgets(buffer, BUFLEN - 1, stdin);
+			if(fgets(buffer, COMMAND_LEN - 1, stdin) == NULL)
+				break;
 			if(buffer[strlen(buffer) - 1] == '\n')
 				buffer[strlen(buffer) - 1] = '\0';
 
+			client_command cmd;
+			char topic[TOPIC_LEN], command[COMMAND_LEN];
+
+			memset(&cmd, 0, sizeof(client_command));
+			memset(command,0,sizeof(command));
+			int type = 0;
 			// compare the first 4 characters with the word exit
 			if (strncmp(buffer, "exit", 4) == 0) {
 				break; // break out of the loop
 			}
+
+			
 			else if(strncmp(buffer, "subscribe", 9) == 0) {
-				// extract the info from the buffer
-				char topic[TOPIC_LEN], command[12];
+				type = 1;
 				int sf;
+				// extract the info from the buffer
 				int result = sscanf(buffer, "%s %s %d", command, topic, &sf);
 				if(result == EOF) 
 					continue;
-				else {
-					// send a subscribe message to the server
-				}
+				else
+					sprintf(command, "s %s %d", topic, sf); // create the command
 			}
 			else if(strncmp(buffer, "unsubscribe", 11) == 0) {
-				char topic[TOPIC_LEN], command[12];
+				type = 2;
 				int result = sscanf(buffer, "%s %s", command, topic);
 				if(result == EOF) 
 					continue;
-				else {
-					// send a unsubscribe message to the server
-				}
+				else 
+					sprintf(command, "u %s", topic); // create the command
 			}
 			else {
 				continue;;
 			}
+			
+			int string_size = strlen(command);
+			
+			// construct payload and send
+			cmd.len = htons(string_size);
+			memcpy(&cmd.payload, command, string_size);
+			memcpy(buffer, &cmd, string_size+2);
+
+			int n = sendall(sockfd, buffer, string_size + 2);
+			DIE(n < 0, "sendall failed");
+
+			if(type == 1) 
+				printf("Subscribed to topic.\n");
+			else
+				printf("Unsubscribed from topic.\n");
+				
 		}
 		// if we recieved information on the socket that is connected to the server
 		if(FD_ISSET(sockfd, &tmp_fds)){
@@ -168,7 +192,7 @@ int main(int argc, char *argv[])
 			memset(buffer, 0, BUFLEN);
 			n = recvall(sockfd, buffer);
 			DIE(n < 0, "recvall failed");
-			if (n == 0) { // the server closed the connection
+			if (n == 0) { // the server closed the connectionc
 				break;
 			}
 

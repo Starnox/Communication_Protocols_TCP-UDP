@@ -15,7 +15,6 @@ void pack(message *msg, char *buf, uint16_t size) {
     memcpy(buf + 8 + TOPIC_LEN, &(msg->type), 1); // put the type
     memcpy(buf + 8 + TOPIC_LEN + 1, &(msg->payload), strlen(msg->payload)); // put the payload
     */
-    memset(buf,0,BUFLEN);
     memcpy(buf, msg, size); // the size of var length isn't included in var len
 }
 
@@ -32,7 +31,7 @@ message unpack(int size, char *buf) {
 }
 
 // this function is taken from Beej's Guide to Network programming
-void sendall(int fd, char *buf, int len) {
+int sendall(int fd, char *buf, int len) {
     int total = 0;
     int bytesleft = len;
     int n;
@@ -43,7 +42,7 @@ void sendall(int fd, char *buf, int len) {
         total += n;
         bytesleft -= n;
     }
-
+    return (total == len ? total : -1);
 }
 
 int recvall(int fd, char *buf) {

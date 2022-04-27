@@ -9,6 +9,7 @@
 #include <arpa/inet.h>
 #include <vector>
 #include <map>
+#include <set>
 #include "tcp_client.h"
 #include "helpers.h"
 
@@ -29,7 +30,9 @@ bool check_server_commands() {
 
 	memset(buffer, 0, BUFLEN);
 	// gets the data from the consoles
-	fgets(buffer, BUFLEN - 1, stdin);
+	if(fgets(buffer, BUFLEN - 1, stdin) == NULL)
+		return false;
+
 	if(buffer[strlen(buffer) - 1] == '\n')
 		buffer[strlen(buffer) - 1] = '\0';
 		
@@ -55,7 +58,7 @@ void incoming_tcp_connection(int tcp_listenfd, int &fd_max,
 	struct sockaddr_in cli_addr;
 
 	subscriber_len = sizeof(cli_addr);
-	char buffer[BUFLEN];
+	char buffer[ID_SIZE];
 	int subscriberfd;
 
 	// accept the connection and create client socket
@@ -63,13 +66,11 @@ void incoming_tcp_connection(int tcp_listenfd, int &fd_max,
 	DIE(subscriberfd < 0, "accept");
 
 	// get the id of the tcp_client
-	memset(buffer, 0, BUFLEN);
+	memset(buffer, 0, ID_SIZE);
 
 	// get the payload in the buffer
-	int n = recv(subscriberfd, buffer, sizeof(buffer), 0);
+	int n = recv(subscriberfd, buffer, ID_SIZE, 0);
 	DIE(n < 0, "recv error");
-	if(buffer[strlen(buffer) - 1] == '\n')
-		buffer[strlen(buffer) - 1] = '\0';
 
 	// if the id is bigger then 10
 	if(strlen(buffer) > 10) {
@@ -124,7 +125,7 @@ void incoming_tcp_connection(int tcp_listenfd, int &fd_max,
 }
 
 void incoming_udp_datagram(int udp_listenfd, struct sockaddr_in cli_udp,
-							std::vector<TCP_Client*> &subscribers) {
+							std::map<std::string, std::set<TCP_Client *>> &topic_subscribers) {
 	socklen_t udp_len = sizeof(cli_udp);
 
 	// initialise the message
@@ -162,10 +163,12 @@ void incoming_udp_datagram(int udp_listenfd, struct sockaddr_in cli_udp,
 
 	memset(buffer, 0, sizeof(buffer));
 	pack(&new_message, buffer, aux+2);
-	for (TCP_Client* client : subscribers) {
+	// get the clients that are subscribed to that topic
+	for (TCP_Client* client : topic_subscribers[new_message.topic]) {
 		if(client->getConnected()) {
 			int fd = client->getFd(), len = aux+2;
-			sendall(fd, buffer, len);
+			int n = sendall(fd, buffer, len);
+			DIE(n < 0, "sendall failed");
 		}
 	}
 }
@@ -177,11 +180,10 @@ int main(int argc, char *argv[])
 
 	// declaration
 	int tcp_listenfd, udp_listenfd, portno;
-	char buffer[BUFLEN];
 
 	std::vector<TCP_Client*> subscribers; // list of subscribers
 	std::map<int, TCP_Client*> fd_to_client; // map between fd and sub
-	//std::map<std::string, std::vector<TCP_Client *>> topic_subscribers;
+	std::map<std::string, std::set<TCP_Client *>> topic_subscribers;
 
 	struct sockaddr_in serv_addr, cli_udp;
 	int n, i, ret;
@@ -275,18 +277,19 @@ int main(int argc, char *argv[])
 					incoming_tcp_connection(tcp_listenfd, fdmax, &read_fds, subscribers, fd_to_client);
 				}
 				else if (i == udp_listenfd) {
-					incoming_udp_datagram(udp_listenfd, cli_udp, subscribers);
+					incoming_udp_datagram(udp_listenfd, cli_udp, topic_subscribers);
 				}
 				else { // otherwise it means we recieved information from one of the clients
 					// reset the buffer
-					memset(buffer, 0, BUFLEN);
+					client_command cmd;
+					char command[COMMAND_LEN];
+
+					memset(&cmd, 0, sizeof(client_command));
+					memset(command, 0, COMMAND_LEN);
 
 					// get the payload in the buffer
-					n = recv(i, buffer, sizeof(buffer), 0);
-					if(buffer[strlen(buffer) - 1] == '\n')
-						buffer[strlen(buffer) - 1] = '\0';
-
-					DIE(n < 0, "recv");
+					n = recvall(i, command);
+					DIE(n < 0, "recvall");
 
 					if (n == 0) {
 						// in case the connection was closed
@@ -301,19 +304,27 @@ int main(int argc, char *argv[])
 						// remove the fd from the set
 						FD_CLR(i, &read_fds);
 					} else {
-						char mesaj[BUFLEN];
-						int client;
-						int result = sscanf(buffer, "%d: %s", &client, mesaj);					
-						if(result == EOF || client <= 3){
+						DIE(n < 2, "command incomplete");
+						char command_type;
+						char topic[TOPIC_LEN];
+						int sf;
+						if(command[2] == 's') {
+							sscanf(command+2, "%c %s %d", &command_type, topic, &sf);
 
-							strcpy(buffer, "Invalid client\n");
-							n = send(i, buffer, strlen(buffer) + 1, 0);
-							DIE(n < 0, "sending_to_client");
-						}
-						else if(FD_ISSET(client, &read_fds)){
-							n = send(client, mesaj, strlen(mesaj) + 1, 0);
-							DIE(n < 0, "sending_to_client");
-						}
+							// add the client to that topic
+							topic_subscribers[topic].insert(fd_to_client[i]);
+
+						} else if(command[2] == 'u') {
+							sscanf(command+2, "%c %s", &command_type, topic);
+							// find the client and remove it
+							for(auto client = topic_subscribers[topic].begin(); client != topic_subscribers[topic].end();) {
+								if((*client)->getFd() == i)
+									client = topic_subscribers[topic].erase(client);
+								else
+									++client;
+							}
+						}	
+								
 					}
 				}
 			}

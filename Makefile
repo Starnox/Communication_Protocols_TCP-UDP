@@ -1,5 +1,5 @@
 CC = g++ 
-CFLAGS = -Wall -Wextra -O3 -std=c++14 
+CFLAGS = -Wall -Wextra -g -std=c++14 
 
 # The port on which the server listens
 PORT = 12345
