@@ -12,30 +12,6 @@ void disable_nagle(int socket) {
 }
 
 /**
- * @brief encode a message struct into a byte stream
- * 
- * @param msg the message 
- * @param buf the buffer in which the information will be stored
- * @param size size of the message
- */
-void pack(message *msg, char *buf, uint16_t size) {
-    memcpy(buf, msg, size); // the size of var length isn't included in var len
-}
-
-/**
- * @brief decodes a byte stream into message struct
- * 
- * @param size the size of the buffer
- * @param buf 
- * @return message 
- */
-message unpack(int size, char *buf) {
-    message new_message;
-    memcpy(&new_message, buf, size);
-    return new_message;
-}
-
-/**
  * @brief use send multiple times
  * to make sure the whole message is transmitted
  * @param fd file descriptor

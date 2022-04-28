@@ -195,7 +195,7 @@ int main(int argc, char *argv[])
 			memcpy(&cmd.payload, command, string_size);
 			memcpy(buffer, &cmd, string_size+2);
 
-			int n = sendall(sockfd, buffer, string_size + 2);
+			int n = sendall(sockfd, (char *) &cmd, string_size + 2);
 			DIE(n < 0, "sendall failed");
 
 			if(type == 1) 
@@ -214,9 +214,8 @@ int main(int argc, char *argv[])
 				break;
 			}
 
-			msg = unpack(n, buffer); // unpack the message
+			msg = *((message *) buffer); // unpack the message
 			format_message(msg);
-			
 		}
 	}
 

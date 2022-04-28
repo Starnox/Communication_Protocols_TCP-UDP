@@ -170,8 +170,6 @@ void incoming_udp_datagram(int udp_listenfd, struct sockaddr_in cli_udp,
 	DIE(ret < 0, "Recv from udp client failed");
 
 	// begin constructing the message from the buffer
-	
-	
 	memcpy(&new_message.ip, &cli_udp.sin_addr, sizeof(struct in_addr)); // get the ip
 	new_message.port = cli_udp.sin_port; // get the port
 	memcpy(&new_message.topic, buffer, TOPIC_LEN); // get the topic
@@ -192,19 +190,17 @@ void incoming_udp_datagram(int udp_listenfd, struct sockaddr_in cli_udp,
 	int aux = new_message.len;
 	new_message.len = htons(new_message.len); // put in network byte order
 
-	memset(buffer, 0, sizeof(buffer));
-	pack(&new_message, buffer, aux+2);
 	// get the clients that are subscribed to that topic
 	for (TCP_Client* client : topic_subscribers[new_message.topic]) {
 		if(client->getConnected()) {
 			int fd = client->getFd(), len = aux+2;
-			int n = sendall(fd, buffer, len);
+			int n = sendall(fd, (char *) &new_message, len);
 			DIE(n < 0, "sendall failed");
 			// if it has store forward
 		} else if(has_sf[{client, new_message.topic}]){
 			// store the message for the client
 			char *msg_copy = (char *) malloc(BUFLEN);
-			memcpy(msg_copy, buffer, BUFLEN);
+			memcpy(msg_copy, (char *) &new_message, BUFLEN);
 			toSend[client].push_back(msg_copy);
 		}
 	}
