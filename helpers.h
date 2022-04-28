@@ -13,8 +13,8 @@
 #include <arpa/inet.h>
 
 /*
- * Macro de verificare a erorilor
- * Exemplu:
+ * Macro de verify errors
+ * Exemple:
  *     int fd = open(file_name, O_RDONLY);
  *     DIE(fd == -1, "open failed");
  */
@@ -33,7 +33,7 @@
 #define PAYLOAD_LEN 1500
 #define COMMAND_LEN 80
 #define TOPIC_LEN 50
-#define MAX_CLIENTS	200	// the maximum number of clients that can be connected at any given time
+#define BACKLOG	10	// the maximum number of clients that can be connected at any given time
 #define ID_SIZE 10
 
 // the packet that will be sent over tcp to the clients

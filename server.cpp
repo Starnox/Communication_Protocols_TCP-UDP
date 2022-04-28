@@ -13,6 +13,11 @@
 #include "tcp_client.h"
 #include "helpers.h"
 
+/**
+ * @brief prints how to execute the program
+ * 
+ * @param file the name of the program
+ */
 void print_usage_message(char *file)
 {
 	fprintf(stderr, "Usage: %s server_port\n", file);
@@ -52,9 +57,9 @@ bool check_server_commands() {
  * @param clients -> the vector of clients
  */
 void incoming_tcp_connection(int tcp_listenfd, int &fd_max,
-								 fd_set *read_fds, std::vector<TCP_Client*> &subscribers,
-								 std::map<int, TCP_Client*> &fd_to_client,
-								 std::map<TCP_Client *, std::vector<char *>> &to_send) {
+			fd_set *read_fds, std::vector<TCP_Client*> &subscribers,
+			std::map<int, TCP_Client*> &fd_to_client,
+			std::map<TCP_Client *, std::vector<char *>> &to_send) {
 	socklen_t subscriber_len;
 	struct sockaddr_in cli_addr;
 
@@ -136,10 +141,20 @@ void incoming_tcp_connection(int tcp_listenfd, int &fd_max,
 	}
 }
 
+/**
+ * @brief makes the connection with the udp client,
+ * retrieves the data, decode it, create an appropriate structure,
+ * pack the data in a buffer and send to all the appropiate tcp clients
+ * @param udp_listenfd the udp socket
+ * @param cli_udp information regarding the udp client
+ * @param topic_subscribers map between topic and clients
+ * @param has_sf map between topic, clients and store forward
+ * @param toSend database of messages that need to be sent
+ */
 void incoming_udp_datagram(int udp_listenfd, struct sockaddr_in cli_udp,
-							std::map<std::string, std::set<TCP_Client *>> &topic_subscribers,
-							std::map<std::pair<TCP_Client*,std::string>,bool> &has_sf,
-							std::map<TCP_Client *, std::vector<char *>> &toSend) {
+			std::map<std::string, std::set<TCP_Client *>> &topic_subscribers,
+			std::map<std::pair<TCP_Client*,std::string>,bool> &has_sf,
+			std::map<TCP_Client *, std::vector<char *>> &toSend) {
 
 	socklen_t udp_len = sizeof(cli_udp);
 
@@ -185,8 +200,9 @@ void incoming_udp_datagram(int udp_listenfd, struct sockaddr_in cli_udp,
 			int fd = client->getFd(), len = aux+2;
 			int n = sendall(fd, buffer, len);
 			DIE(n < 0, "sendall failed");
+			// if it has store forward
 		} else if(has_sf[{client, new_message.topic}]){
-			// TODO store the message for the client
+			// store the message for the client
 			char *msg_copy = (char *) malloc(BUFLEN);
 			memcpy(msg_copy, buffer, BUFLEN);
 			toSend[client].push_back(msg_copy);
@@ -243,7 +259,7 @@ int main(int argc, char *argv[])
 	ret = bind(tcp_listenfd, (struct sockaddr *) &serv_addr, sizeof(struct sockaddr));
 	DIE(ret < 0, "bind");
 
-	ret = listen(tcp_listenfd, MAX_CLIENTS);
+	ret = listen(tcp_listenfd, BACKLOG);
 	DIE(ret < 0, "listen");
 
 	disable_nagle(tcp_listenfd); // disable nagle on tcp_listening socket

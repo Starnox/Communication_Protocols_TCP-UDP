@@ -11,12 +11,25 @@
 #include <cmath>
 #include "helpers.h"
 
+/**
+ * @brief prints how to execute the program
+ * 
+ * @param file the name of the program
+ */
 void usage(char *file)
 {
 	fprintf(stderr, "Usage: %s <ID_Client> <IP_Server> <Port_Server>\n", file);
 	exit(0);
 }
 
+/**
+ * @brief checks if the client with the given id is connected
+ * 
+ * @param sockfd the socket that is connected to the server
+ * @param id the id that this client want to connect with
+ * @return true 
+ * @return false 
+ */
 bool check_id(int sockfd, char id[ID_SIZE]) {
 	id[ID_SIZE-1] = '\0';
 	int n = send(sockfd, id, ID_SIZE, 0);
@@ -31,17 +44,16 @@ bool check_id(int sockfd, char id[ID_SIZE]) {
 	
 }
 
-float new_precision(float n, float i) {
-	return floor(pow(10,i)*n)/pow(10,i);
-}
-
+/**
+ * @brief prints the message from the server 
+ * using the correct format
+ * @param msg 
+ */
 void format_message(message &msg) {
-	
-	
 	char value[PAYLOAD_LEN+20];
 	memset(value, 0 , PAYLOAD_LEN+20);
 
-	if(msg.type == 0) { 
+	if(msg.type == 0) {  // INT
 		uint8_t sign = *msg.payload;
 		uint32_t *num = ((uint32_t *) (msg.payload+1));
 		*num = ntohl(*num);
@@ -50,12 +62,12 @@ void format_message(message &msg) {
 		else
 			sprintf(value, "INT - -%d", *num);
 	}
-	else if(msg.type == 1) {
+	else if(msg.type == 1) { // SHORT_REAL
 		uint16_t *num = ((uint16_t *) (msg.payload));
 		*num = ntohs(*num);
  		sprintf(value,"SHORT_REAL - %.10g", (*num * 1.0)/100);
 	}
-	else if(msg.type == 2) {
+	else if(msg.type == 2) { // FLOAT
 		uint8_t sign = *msg.payload;
 		uint32_t *num = ((uint32_t *) (msg.payload+1));
 		*num = ntohl(*num);
@@ -65,7 +77,7 @@ void format_message(message &msg) {
 		else
 			sprintf(value,"FLOAT - -%.10g", (*num * 1.0) * pow(10, -mod));	
 	}
-	else {
+	else { // STRING
 		int payload_size = ntohs(msg.len) - 57;
 		msg.payload[payload_size] = '\0';
 		sprintf(value,"STRING - %s", msg.payload);
