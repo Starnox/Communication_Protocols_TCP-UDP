@@ -90,7 +90,7 @@ class Topic:
     ret.append(Topic("a_larger_value", "INT", "1234567890"))
     ret.append(Topic("a_large_negative_value", "INT", "-1234567890"))
     ret.append(Topic("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwx", "INT", "10"))
-    ret.append(Topic("that_is_small_short_real", "SHORT_REAL", "2.3"))
+    ret.append(Topic("that_is_small_short_real", "SHORT_REAL", "2.30"))
     ret.append(Topic("that_is_big_short_real", "SHORT_REAL", "655.05"))
     ret.append(Topic("that_is_integer_short_real", "SHORT_REAL", "17"))
     ret.append(Topic("float_seventeen", "FLOAT", "17"))

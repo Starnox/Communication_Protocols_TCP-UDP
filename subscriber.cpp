@@ -65,7 +65,10 @@ void format_message(message &msg) {
 	else if(msg.type == 1) { // SHORT_REAL
 		uint16_t *num = ((uint16_t *) (msg.payload));
 		*num = ntohs(*num);
- 		sprintf(value,"SHORT_REAL - %.10g", (*num * 1.0)/100);
+		if((*num * 1.0)/100 == (*num) / 100)
+ 			sprintf(value,"SHORT_REAL - %d", (*num)/100);
+		else
+			sprintf(value,"SHORT_REAL - %.2f", (*num * 1.0)/100);
 	}
 	else if(msg.type == 2) { // FLOAT
 		uint8_t sign = *msg.payload;
